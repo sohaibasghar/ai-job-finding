@@ -12,7 +12,7 @@ vi.mock("@/components/toast", () => ({ toast: vi.fn(), toastResult: (result: { o
 
 const initial: AgentSettings = {
   enabled: false,
-  query: { keywords: "Data scientist", place: "Berlin", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" },
+  query: { keywords: "Data scientist", place: "Berlin", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any", categories: [] },
   hour: 7,
   minScore: 70,
   maxScores: 15,
@@ -45,7 +45,7 @@ describe("Settings → Job agent (E16-7)", () => {
     open({ initial: { ...initial, query: { ...initial.query, keywords: "", country: "" } } });
     await user.click(screen.getByRole("switch", { name: "Run the job agent" }));
     expect(saveAgentSettings).not.toHaveBeenCalled();
-    expect(screen.getByLabelText("What")).toHaveAccessibleDescription("Type what the agent should look for.");
+    expect(screen.getByLabelText("What")).toHaveAccessibleDescription("Type what the agent should look for, or pick a category.");
     expect(screen.getByLabelText("Country")).toHaveAccessibleDescription("Choose a country.");
     expect(screen.getByRole("switch", { name: "Run the job agent" })).toHaveAttribute("aria-checked", "false");
   });
@@ -78,7 +78,7 @@ describe("Settings → Job agent (E16-7)", () => {
 
   it("explains the limits in plain words", () => {
     open();
-    expect(screen.getByText(/^One search a day, and at most three in any 24 hours\. Each run scores up to 15 postings\./)).toBeInTheDocument();
+    expect(screen.getByText(/^One search a day, and at most three in any 24 hours; with categories, each run asks the job source once per category\. Each run scores up to 15 postings\./)).toBeInTheDocument();
   });
 
   it("points to the source or AI provider while one isn't set up", () => {

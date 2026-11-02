@@ -11,6 +11,7 @@ import { Button, buttonClassName } from "@/components/ui/button";
 import { cn } from "@/lib/cn";
 import type { Country } from "@/lib/job-search/countries";
 import {
+  hasWhat,
   searchHref,
   searchRunHref,
   viewHref,
@@ -27,7 +28,12 @@ import { SOURCE_INFO } from "@/lib/job-search/sources";
 import { acceptArbeitsagenturNote, runJobSearch } from "./actions";
 import { PastSearches } from "./past-searches";
 import { PostingResults } from "./posting-results";
-import { RemoteOnlyField, SearchFields, uncoveredCountry } from "./search-fields";
+import {
+  CategoriesField,
+  RemoteOnlyField,
+  SearchFields,
+  uncoveredCountry,
+} from "./search-fields";
 
 export type JobsScreenProps = {
   /** The source chosen in Settings; null while job search is off. */
@@ -76,7 +82,10 @@ export function JobsScreen({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   // A search that didn't work, with what was asked, for Try again.
-  const [failed, setFailed] = useState<{ problem: Problem; query: SearchQuery } | null>(null);
+  const [failed, setFailed] = useState<{
+    problem: Problem;
+    query: SearchQuery;
+  } | null>(null);
   const header = (
     <>
       <PageHeader
@@ -100,7 +109,13 @@ export function JobsScreen({
     return (
       <>
         {header}
-        <PostingResults key={view} mode={view} postings={kept} today={today} scoreInClaude={scoreInClaude} />
+        <PostingResults
+          key={view}
+          mode={view}
+          postings={kept}
+          today={today}
+          scoreInClaude={scoreInClaude}
+        />
       </>
     );
   }
@@ -119,7 +134,8 @@ export function JobsScreen({
     startTransition(async () => {
       const result = await runJobSearch({ query: next });
       if (!result.ok) return void toast(result.error);
-      if (!result.data.ok) return void setFailed({ problem: result.data, query: next });
+      if (!result.data.ok)
+        return void setFailed({ problem: result.data, query: next });
       setFailed(null);
       router.push(searchRunHref(result.data.id), { scroll: false });
     });
@@ -136,15 +152,43 @@ export function JobsScreen({
   return (
     <>
       {header}
-      {arbeitsagenturNote && <ArbeitsagenturNote accepted={false} onAccept={acceptArbeitsagentur} className="mx-10 mb-5 max-w-[760px]" />}
-      <SearchForm source={source} countries={countries} query={query} pending={pending} onSearch={run} />
+      {arbeitsagenturNote && (
+        <ArbeitsagenturNote
+          accepted={false}
+          onAccept={acceptArbeitsagentur}
+          className="mx-10 mb-5 max-w-[760px]"
+        />
+      )}
+      <SearchForm
+        source={source}
+        countries={countries}
+        query={query}
+        pending={pending}
+        onSearch={run}
+      />
       {/* Announces each new set of results; the list itself is replaced. */}
       <p role="status" className="sr-only">
-        {pending ? "Searching…" : failed ? failed.problem.message : search ? `${search.postings.length} postings found.` : ""}
+        {pending
+          ? "Searching…"
+          : failed
+            ? failed.problem.message
+            : search
+              ? `${search.postings.length} postings found.`
+              : ""}
       </p>
-      <div className={cn("flex flex-1 flex-col motion-safe:transition-opacity", pending && "opacity-60")} aria-busy={pending || undefined}>
+      <div
+        className={cn(
+          "flex flex-1 flex-col motion-safe:transition-opacity",
+          pending && "opacity-60",
+        )}
+        aria-busy={pending || undefined}
+      >
         {failed ? (
-          <SearchProblem problem={failed.problem.problem} message={failed.problem.message} onRetry={() => run(failed.query)} />
+          <SearchProblem
+            problem={failed.problem.problem}
+            message={failed.problem.message}
+            onRetry={() => run(failed.query)}
+          />
         ) : search ? (
           <PostingResults
             key={search.id}
@@ -181,7 +225,9 @@ function SearchForm({
   onSearch: (query: SearchQuery) => void;
 }) {
   const [form, setForm] = useState(query);
-  const [errors, setErrors] = useState<{ keywords?: string; country?: string }>({});
+  const [errors, setErrors] = useState<{ keywords?: string; country?: string }>(
+    {},
+  );
   // Back and forward change the URL's search; the form follows.
   const [shown, setShown] = useState(query);
   if (searchHref(query) !== searchHref(shown)) {
@@ -190,19 +236,26 @@ function SearchForm({
     setErrors({});
   }
 
-  const set = (patch: Partial<SearchQuery>) => setForm((current) => ({ ...current, ...patch }));
+  const set = (patch: Partial<SearchQuery>) =>
+    setForm((current) => ({ ...current, ...patch }));
   const uncovered = uncoveredCountry(source, form, countries);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     if (pending) return;
     const problems = {
-      keywords: form.keywords.trim() ? undefined : "Type what you're looking for.",
+      keywords: hasWhat(form)
+        ? undefined
+        : "Type what you're looking for, or pick a category.",
       country: form.country ? uncovered : "Choose a country.",
     };
     setErrors(problems);
     if (problems.keywords || problems.country) return;
-    onSearch({ ...form, keywords: form.keywords.trim(), place: form.place.trim() });
+    onSearch({
+      ...form,
+      keywords: form.keywords.trim(),
+      place: form.place.trim(),
+    });
   };
 
   return (
@@ -213,7 +266,18 @@ function SearchForm({
       onSubmit={submit}
       className="mx-10 mb-7 grid grid-cols-1 items-start gap-x-4 gap-y-4 rounded-panel border border-line-card bg-card p-6 sm:grid-cols-2 lg:grid-cols-[2fr_1.5fr_1.3fr_1fr_1fr]"
     >
-      <SearchFields value={form} onChange={set} source={source} countries={countries} errors={errors} />
+      <SearchFields
+        value={form}
+        onChange={set}
+        source={source}
+        countries={countries}
+        errors={errors}
+      />
+      <CategoriesField
+        value={form}
+        onChange={set}
+        className="sm:col-span-2 lg:col-span-5"
+      />
       <div className="flex flex-wrap items-center justify-between gap-4 sm:col-span-2 lg:col-span-5">
         <RemoteOnlyField value={form} onChange={set} source={source} />
         <Button type="submit" aria-disabled={pending || undefined}>
@@ -225,16 +289,40 @@ function SearchForm({
 }
 
 /** Search, Past searches (E14-10), Saved and Dismissed (E14-7), with how many each holds. */
-function ViewTabs({ view, counts }: { view: JobsView; counts: { searches: number; saved: number; dismissed: number } }) {
+function ViewTabs({
+  view,
+  counts,
+}: {
+  view: JobsView;
+  counts: { searches: number; saved: number; dismissed: number };
+}) {
   const tabs = [
     // The latest search, as it was kept.
     { view: "search", label: "Search", href: "/jobs", count: null },
-    { view: "history", label: "Past searches", href: viewHref("history"), count: counts.searches },
-    { view: "saved", label: "Saved", href: viewHref("saved"), count: counts.saved },
-    { view: "dismissed", label: "Dismissed", href: viewHref("dismissed"), count: counts.dismissed },
+    {
+      view: "history",
+      label: "Past searches",
+      href: viewHref("history"),
+      count: counts.searches,
+    },
+    {
+      view: "saved",
+      label: "Saved",
+      href: viewHref("saved"),
+      count: counts.saved,
+    },
+    {
+      view: "dismissed",
+      label: "Dismissed",
+      href: viewHref("dismissed"),
+      count: counts.dismissed,
+    },
   ] as const;
   return (
-    <nav aria-label="Find jobs views" className="flex flex-wrap gap-1.5 px-10 pb-[18px]">
+    <nav
+      aria-label="Find jobs views"
+      className="flex flex-wrap gap-1.5 px-10 pb-[18px]"
+    >
       {tabs.map((tab) => (
         <Link
           key={tab.view}
@@ -242,11 +330,15 @@ function ViewTabs({ view, counts }: { view: JobsView; counts: { searches: number
           aria-current={tab.view === view ? "page" : undefined}
           className={cn(
             "flex items-baseline gap-1.5 rounded-control border px-3 py-2 text-control",
-            tab.view === view ? "border-primary bg-selected font-medium text-primary-text hover:text-primary-text" : "border-line-field bg-card text-ink hover:border-line-strong hover:bg-hover hover:text-ink",
+            tab.view === view
+              ? "border-primary bg-selected font-medium text-primary-text hover:text-primary-text"
+              : "border-line-field bg-card text-ink hover:border-line-strong hover:bg-hover hover:text-ink",
           )}
         >
           {tab.label}
-          {tab.count !== null && <span className="text-xs opacity-65">{tab.count}</span>}
+          {tab.count !== null && (
+            <span className="text-xs opacity-65">{tab.count}</span>
+          )}
         </Link>
       ))}
     </nav>
@@ -259,10 +351,18 @@ function NoSource() {
     <div className="mx-10 mb-16 flex max-w-[640px] flex-col items-start gap-3 rounded-panel border border-line-card bg-card px-7 py-7">
       <h2 className="font-serif text-section">Choose where to search</h2>
       <p className="text-sm text-muted">
-        Find jobs searches one job source for you, such as JSearch (LinkedIn, Indeed and more) or Adzuna. Pick one in Settings. Until then,
-        nothing is sent anywhere.
+        Find jobs searches one job source for you, such as JSearch (LinkedIn,
+        Indeed and more) or Adzuna. Pick one in Settings. Until then, nothing is
+        sent anywhere.
       </p>
-      <Link href={SETTINGS_HREF} className={buttonClassName("primary", "md", "mt-1 hover:text-on-primary")}>
+      <Link
+        href={SETTINGS_HREF}
+        className={buttonClassName(
+          "primary",
+          "md",
+          "mt-1 hover:text-on-primary",
+        )}
+      >
         Set up job search
       </Link>
     </div>
@@ -270,13 +370,32 @@ function NoSource() {
 }
 
 /** A search that didn't work, and what to do about it. */
-function SearchProblem({ problem, message, onRetry }: { problem: Problem["problem"]; message: string; onRetry: () => void }) {
-  const toSettings = problem === "no-key" || problem === "key" || problem === "country" || problem === "changed" || problem === "off";
+function SearchProblem({
+  problem,
+  message,
+  onRetry,
+}: {
+  problem: Problem["problem"];
+  message: string;
+  onRetry: () => void;
+}) {
+  const toSettings =
+    problem === "no-key" ||
+    problem === "key" ||
+    problem === "country" ||
+    problem === "changed" ||
+    problem === "off";
   return (
-    <div role="alert" className="mx-10 mb-16 flex max-w-[640px] flex-col items-start gap-3 rounded-panel border border-line-card bg-card px-7 py-6">
+    <div
+      role="alert"
+      className="mx-10 mb-16 flex max-w-[640px] flex-col items-start gap-3 rounded-panel border border-line-card bg-card px-7 py-6"
+    >
       <p className="text-sm">{message}</p>
       {toSettings ? (
-        <Link href={SETTINGS_HREF} className={buttonClassName("secondary", "sm")}>
+        <Link
+          href={SETTINGS_HREF}
+          className={buttonClassName("secondary", "sm")}
+        >
           Open Settings → Job search
         </Link>
       ) : problem === "unavailable" ? (

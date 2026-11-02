@@ -169,6 +169,6 @@ export const jsearch: JobSourceAdapter<"JSEARCH"> = {
   // Search results carry the whole description.
   details: async (posting) => (posting.description ? posting.description : null),
   test: async (credentials, context) => {
-    await searchPage({ keywords: "developer", place: "", country: "us", radiusKm: 25, remoteOnly: false, postedWithin: "any" }, credentials, null, context);
+    await searchPage({ keywords: "developer", place: "", country: "us", radiusKm: 25, remoteOnly: false, postedWithin: "any", categories: [] }, credentials, null, context);
   },
 };

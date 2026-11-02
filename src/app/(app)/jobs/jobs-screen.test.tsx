@@ -143,7 +143,7 @@ describe("the search form", () => {
   it("asks for keywords and a country first", async () => {
     renderScreen({ query: EMPTY_QUERY });
     await userEvent.click(screen.getByRole("button", { name: "Search" }));
-    expect(screen.getByText("Type what you're looking for.")).toBeInTheDocument();
+    expect(screen.getByText("Type what you're looking for, or pick a category.")).toBeInTheDocument();
     expect(screen.getByText("Choose a country.")).toBeInTheDocument();
     expect(runJobSearch).not.toHaveBeenCalled();
     // Without a place, the radius has nothing to go by.

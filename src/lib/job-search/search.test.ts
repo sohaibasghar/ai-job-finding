@@ -22,10 +22,24 @@ import {
 
 describe("search in the URL", () => {
   it("round-trips a search", () => {
-    const query = { keywords: "product designer", place: "Hamburg", country: "de", radiusKm: 50 as const, remoteOnly: true, postedWithin: "week" as const };
+    const query = { keywords: "product designer", place: "Hamburg", country: "de", radiusKm: 50 as const, remoteOnly: true, postedWithin: "week" as const, categories: [] };
     const href = searchHref(query);
     expect(href).toBe("/jobs?q=product+designer&where=Hamburg&country=de&radius=50&remote=1&posted=week");
     expect(queryFromParams(Object.fromEntries(new URL(href, "http://x").searchParams))).toEqual(query);
+  });
+
+  it("round-trips categories, and takes them without keywords", () => {
+    const query = { ...EMPTY_QUERY, keywords: "", country: "de", categories: ["ui-ux" as const, "creative-direction" as const] };
+    const href = searchHref(query);
+    expect(href).toBe("/jobs?q=&cat=ui-ux%2Ccreative-direction&country=de");
+    expect(queryFromParams(Object.fromEntries(new URL(href, "http://x").searchParams))).toEqual(query);
+    expect(queryFromParams({ cat: "nope,software,software" })).toMatchObject({ keywords: "", categories: ["software"] });
+    expect(queryFromParams({ cat: "nope" })).toBeNull();
+  });
+
+  it("reads a search kept before categories", () => {
+    const old = { keywords: "nurse", place: "", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" };
+    expect(searchQuerySchema.parse(old).categories).toEqual([]);
   });
 
   it("leaves defaults out of the URL", () => {

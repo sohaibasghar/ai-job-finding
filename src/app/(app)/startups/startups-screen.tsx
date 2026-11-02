@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition, type FormEvent } from "react";
 
+import { CategoryChips } from "@/components/category-chips";
 import { PageHeader } from "@/components/page-header";
 import { ScoreBadge } from "@/components/score-badge";
 import { toast, toastResult } from "@/components/toast";
@@ -225,6 +226,7 @@ function Filters({ filter, city, country, onChange }: { filter: StartupFilter; c
         <option value="match">Best match</option>
         <option value="newest">Newest</option>
       </Select>
+      <CategoryChips className="sm:col-span-2 lg:col-span-5" value={filter.categories} onChange={(categories) => onChange({ categories })} hint="Startups hiring for any of them." />
       <div className="sm:col-span-2 lg:col-span-5">
         <Checkbox label="Only ones with an address to write to" checked={filter.withEmail} onChange={(event) => onChange({ withEmail: event.target.checked })} />
       </div>
@@ -233,7 +235,7 @@ function Filters({ filter, city, country, onChange }: { filter: StartupFilter; c
 }
 
 function Empty({ filter }: { filter: StartupFilter }) {
-  const filtered = filter.q || filter.place !== "any" || filter.source || filter.minScore > 0 || filter.withEmail;
+  const filtered = filter.q || filter.categories.length > 0 || filter.place !== "any" || filter.source || filter.minScore > 0 || filter.withEmail;
   return (
     <p className="rounded-panel border border-dashed border-line-strong px-7 py-10 text-center text-sm text-muted">
       {filtered ? "None match these filters. Try fewer." : filter.status === "NEW" ? "Nothing new to look at. The next refresh may bring more." : "None here yet."}

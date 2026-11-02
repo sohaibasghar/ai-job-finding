@@ -1,8 +1,10 @@
 "use client";
 
+import { CategoryChips } from "@/components/category-chips";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Select } from "@/components/ui/select";
+import { MAX_CATEGORIES } from "@/lib/job-categories";
 import type { Country } from "@/lib/job-search/countries";
 import { POSTED_WITHIN, RADII_KM, type JobSource, type RadiusKm, type SearchQuery } from "@/lib/job-search/search";
 import { SOURCE_INFO, sourceCovers } from "@/lib/job-search/sources";
@@ -19,7 +21,7 @@ export function uncoveredCountry(source: JobSource | null, query: SearchQuery, c
   return `${SOURCE_INFO[source].name} doesn't list jobs in ${name}.`;
 }
 
-/** What, Where, Country, Within and Posted, for a grid; Remote only is RemoteOnlyField. */
+/** What, Where, Country, Within and Posted, for a grid; Categories is CategoriesField, Remote only is RemoteOnlyField. */
 export function SearchFields({
   value,
   onChange,
@@ -43,7 +45,7 @@ export function SearchFields({
         label="What"
         className="sm:col-span-2 lg:col-span-1"
         value={value.keywords}
-        placeholder="Job title, skill or company"
+        placeholder={value.categories.length > 0 ? "Optional, e.g. a skill" : "Job title, skill or company"}
         error={errors.keywords}
         onChange={(event) => onChange({ keywords: event.target.value })}
         onBlur={onBlur}
@@ -78,6 +80,24 @@ export function SearchFields({
         ))}
       </Select>
     </>
+  );
+}
+
+/** The job categories to search, each its own search on the source. */
+export function CategoriesField({ value, onChange, className }: { value: SearchQuery; onChange: (patch: Partial<SearchQuery>) => void; className?: string }) {
+  const count = value.categories.length;
+  return (
+    <CategoryChips
+      className={className}
+      value={value.categories}
+      max={MAX_CATEGORIES}
+      onChange={(categories) => onChange({ categories })}
+      hint={
+        count > 1
+          ? `Each category is its own search, so this one asks your job source ${count} times. Up to ${MAX_CATEGORIES}.`
+          : "Optional. Pick up to five; what you type under What is added to each."
+      }
+    />
   );
 }
 

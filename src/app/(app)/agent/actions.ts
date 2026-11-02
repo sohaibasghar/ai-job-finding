@@ -9,7 +9,7 @@ import { AGENT_JOB_KEY, agentScanJob } from "@/lib/agent/jobs";
 import { agentQueryReady, agentSetupProblem } from "@/lib/agent/run";
 import { runLimitProblem } from "@/lib/agent/runs";
 import { action, ActionError } from "@/lib/action";
-import { safeLink, searchQuerySchema } from "@/lib/job-search/search";
+import { hasWhat, safeLink, searchQuerySchema } from "@/lib/job-search/search";
 import { findUnfinishedJobs, startJob } from "@/lib/jobs/runner";
 import { prisma } from "@/lib/prisma";
 import { loadSettings, saveSettings } from "@/lib/settings-data";
@@ -35,7 +35,7 @@ export const saveAgentSettings = action(
     const settings = await loadSettings();
     const query = changes.query ?? settings.agentQuery;
     if (changes.enabled && !agentQueryReady(query)) {
-      throw new ActionError(query.keywords.trim() ? "Choose a country for the search before turning the agent on." : "Type what the agent should look for before turning it on.");
+      throw new ActionError(hasWhat(query) ? "Choose a country for the search before turning the agent on." : "Type what the agent should look for, or pick a category, before turning it on.");
     }
     await saveSettings({
       agentEnabled: changes.enabled,

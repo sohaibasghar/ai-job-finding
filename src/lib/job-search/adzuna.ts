@@ -114,6 +114,6 @@ export const adzuna: JobSourceAdapter<"ADZUNA"> = {
     return page.ok ? page.text : null;
   },
   test: async (credentials, context) => {
-    await searchPage({ keywords: "developer", place: "", country: "gb", radiusKm: 25, remoteOnly: false, postedWithin: "any" }, credentials, null, context);
+    await searchPage({ keywords: "developer", place: "", country: "gb", radiusKm: 25, remoteOnly: false, postedWithin: "any", categories: [] }, credentials, null, context);
   },
 };

@@ -12,7 +12,7 @@ import { scorePosting } from "@/lib/ai/tasks";
 import { searchPostings } from "@/lib/job-search";
 import { credentialsFor, loadJobSearchConfig, requestContext } from "@/lib/job-search/config";
 import { JobSearchError } from "@/lib/job-search/errors";
-import { postingKey, postingText, type FoundPosting, type SearchQuery } from "@/lib/job-search/search";
+import { hasWhat, postingKey, postingText, type FoundPosting, type SearchQuery } from "@/lib/job-search/search";
 import { startJob, type JobContext } from "@/lib/jobs/runner";
 import { logServerError } from "@/lib/log";
 import { saveScore } from "@/lib/posting-scores";
@@ -45,12 +45,12 @@ export type AgentScanResult = z.infer<typeof agentScanResultSchema>;
 
 const stopped = (message: string): AgentScanResult => ({ found: 0, fresh: 0, scored: 0, drafted: 0, skipped: 0, message });
 
-/** Whether a search is complete enough to run: keywords and a country. */
-export const agentQueryReady = (query: SearchQuery) => Boolean(query.keywords.trim() && query.country);
+/** Whether a search is complete enough to run: keywords or a category, and a country. */
+export const agentQueryReady = (query: SearchQuery) => hasWhat(query) && Boolean(query.country);
 
 /** Why the agent can't run at all, in words, or null when it's set up. */
 export async function agentSetupProblem(query: SearchQuery): Promise<string | null> {
-  if (!query.keywords.trim()) return "Add what to look for in Settings → Job agent first.";
+  if (!hasWhat(query)) return "Add what to look for in Settings → Job agent first.";
   if (!query.country) return "Choose a country for the search in Settings → Job agent first.";
   if (!(await isAiConfigured())) return "Choose an AI provider in Settings → AI provider first.";
   const config = await loadJobSearchConfig();
@@ -90,7 +90,8 @@ export async function newPostings(postings: readonly FoundPosting[]): Promise<Fo
 const newestFirst = (a: FoundPosting, b: FoundPosting) => (b.postedAt ? Date.parse(b.postedAt) : 0) - (a.postedAt ? Date.parse(a.postedAt) : 0);
 
 /**
- * One run: the first page of results only (one source request), then a
+ * One run: the first page of results only (one source request, or one per
+ * category), then a
  * score for the newest new postings, up to agentMaxScores. Each is kept as a
  * candidate, so it doesn't come back; one below agentMinScore stays out of
  * the queue. With auto-draft on, the best of them get a draft each, up to

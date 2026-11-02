@@ -146,6 +146,6 @@ export const arbeitsagentur: JobSourceAdapter<"ARBEITSAGENTUR"> = {
   search: (query, _credentials, next, context) => searchPage(query, next, context),
   details: (posting, _credentials, context) => details(posting, context),
   test: async (_credentials, context) => {
-    await searchPage({ keywords: "Softwareentwickler", place: "", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any" }, null, context);
+    await searchPage({ keywords: "Softwareentwickler", place: "", country: "de", radiusKm: 25, remoteOnly: false, postedWithin: "any", categories: [] }, null, context);
   },
 };

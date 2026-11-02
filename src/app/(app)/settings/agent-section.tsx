@@ -10,10 +10,10 @@ import { Select } from "@/components/ui/select";
 import { Toggle } from "@/components/ui/toggle";
 import { useAutosave } from "@/hooks/use-autosave";
 import type { Country } from "@/lib/job-search/countries";
-import { searchHref, type JobSource, type SearchQuery } from "@/lib/job-search/search";
+import { hasWhat, searchHref, type JobSource, type SearchQuery } from "@/lib/job-search/search";
 
 import { saveAgentSettings } from "../agent/actions";
-import { RemoteOnlyField, SearchFields, type SearchFieldErrors } from "../jobs/search-fields";
+import { CategoriesField, RemoteOnlyField, SearchFields, type SearchFieldErrors } from "../jobs/search-fields";
 import { SettingsSectionIntro } from "./settings-screen";
 
 export type AgentSettings = {
@@ -73,7 +73,7 @@ export function AgentSection({
   const turnOn = (on: boolean) => {
     if (on) {
       const problems = {
-        keywords: settings.query.keywords.trim() ? undefined : "Type what the agent should look for.",
+        keywords: hasWhat(settings.query) ? undefined : "Type what the agent should look for, or pick a category.",
         country: settings.query.country ? undefined : "Choose a country.",
       };
       setErrors(problems);
@@ -135,6 +135,7 @@ export function AgentSection({
         </div>
         <div className="grid grid-cols-1 items-start gap-x-4 gap-y-4 sm:grid-cols-2" onBlur={flush}>
           <SearchFields value={settings.query} onChange={setQuery} source={source} countries={countries} errors={errors} />
+          <CategoriesField value={settings.query} onChange={setQuery} className="sm:col-span-2" />
           <div className="sm:col-span-2">
             <RemoteOnlyField value={settings.query} onChange={setQuery} source={source} />
           </div>
@@ -195,7 +196,7 @@ export function AgentSection({
       </Card>
 
       <p className="text-meta text-muted">
-        One search a day, and at most three in any 24 hours. Each run scores up to {plural(settings.maxScores, "posting", "postings")}
+        One search a day, and at most three in any 24 hours; with categories, each run asks the job source once per category. Each run scores up to {plural(settings.maxScores, "posting", "postings")}
         {settings.autoDraft ? ` and prepares up to ${plural(settings.maxDrafts, "draft", "drafts")}` : ""}. Scoring and drafts go to your AI provider with your profile, as a new application does; the job source only gets the search.
       </p>
     </>

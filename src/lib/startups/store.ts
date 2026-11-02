@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 
 import type { Prisma, Startup } from "@/generated/prisma/client";
 import { ApplicationStatus, StartupStatus } from "@/generated/prisma/enums";
+import { matchesCategories } from "@/lib/job-categories";
 import type { ProfileData } from "@/lib/profile";
 import { prisma } from "@/lib/prisma";
 import { loadProfile } from "@/lib/profile-data";
@@ -208,6 +209,8 @@ export async function listStartups(filter: StartupFilter, place: Place, { limit 
   const matching = rows.map(startupView).filter((startup) => {
     if (filter.withEmail && startup.emails.length === 0) return false;
     if (!inPlace(startup, filter.place, place)) return false;
+    // A post that names no roles is matched on what it says.
+    if (filter.categories.length > 0 && !matchesCategories(startup.roles.length > 0 ? startup.roles.join("\n") : `${startup.summary}\n${startup.details}`, filter.categories)) return false;
     if (words.length === 0) return true;
     const text = [startup.company, startup.summary, startup.details, startup.location, startup.stage, ...startup.roles].join(" ").toLowerCase();
     return words.every((word) => text.includes(word));

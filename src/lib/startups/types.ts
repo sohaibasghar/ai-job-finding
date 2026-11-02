@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { categoriesFromParam, JOB_CATEGORY_IDS } from "@/lib/job-categories";
+
 // Startups (#222): startups that are hiring, from YC startups' job posts on
 // Hacker News and Hacker News' monthly "Who is hiring?" thread, ranked
 // against the profile, with the addresses they publish for applications.
@@ -89,6 +91,8 @@ export const STARTUP_SORTS = ["match", "newest"] as const;
 
 export const startupFilterSchema = z.object({
   q: z.string().trim().max(200).default(""),
+  /** Kinds of work its roles name; any of them will do. */
+  categories: z.array(z.enum(JOB_CATEGORY_IDS)).default([]),
   place: z.enum(STARTUP_PLACES).default("any"),
   source: z.enum(STARTUP_SOURCES).or(z.literal("")).default(""),
   minScore: z.coerce.number().int().min(0).max(100).default(0),
@@ -104,6 +108,7 @@ const one = (value: string | string[] | undefined) => (Array.isArray(value) ? va
 export function startupFilterFromParams(params: Record<string, string | string[] | undefined>): StartupFilter {
   const parsed = startupFilterSchema.safeParse({
     q: one(params.q),
+    categories: categoriesFromParam(one(params.cat)),
     place: one(params.place) || undefined,
     source: one(params.source).toUpperCase(),
     minScore: one(params.min) || undefined,
@@ -118,6 +123,7 @@ export function startupFilterFromParams(params: Record<string, string | string[]
 export function startupFilterHref(filter: StartupFilter): string {
   const params = new URLSearchParams();
   if (filter.q) params.set("q", filter.q);
+  if (filter.categories.length > 0) params.set("cat", filter.categories.join(","));
   if (filter.place !== "any") params.set("place", filter.place);
   if (filter.source) params.set("source", filter.source.toLowerCase());
   if (filter.minScore > 0) params.set("min", String(filter.minScore));

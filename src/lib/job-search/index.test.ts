@@ -68,6 +68,35 @@ describe("searchPostings", () => {
   });
 });
 
+describe("searchPostings with categories", () => {
+  const categorized = { ...query, keywords: "senior", categories: ["software" as const, "ui-ux" as const] };
+  const route = ({ url }: { url: URL }) => json(url.searchParams.get("query")?.includes("software") ? jsearchV2Page : jsearchV2LastPage);
+
+  it("searches each category after the keywords, one at a time, and takes from each in turn", async () => {
+    const requests = stubFetch(route);
+    const page = await searchPostings("JSEARCH", ninja, categorized);
+    expect(requests.map((request) => request.url.searchParams.get("query"))).toEqual(["senior software engineer", "senior UX designer"]);
+    // The same posting from both searches is kept once.
+    expect(page.postings.map((posting) => posting.title)).toEqual([jsearchV2Page.data.jobs[0].job_title, jsearchV2Page.data.jobs[1].job_title]);
+    expect(JSON.parse(page.next!)).toEqual([expect.stringContaining("CURSOR-PAGE-2"), null]);
+  });
+
+  it("asks only the searches with more for the next page, and stops when none has", async () => {
+    const requests = stubFetch(route);
+    const first = await searchPostings("JSEARCH", ninja, categorized);
+    stubFetch(() => json(jsearchV2LastPage));
+    const second = await searchPostings("JSEARCH", ninja, categorized, first.next);
+    expect(requests).toHaveLength(2);
+    expect(second.next).toBeNull();
+  });
+
+  it("gives an empty last page for a next that isn't its own", async () => {
+    const requests = stubFetch(route);
+    expect(await searchPostings("JSEARCH", ninja, categorized, "cursor:other")).toEqual({ postings: [], next: null });
+    expect(requests).toHaveLength(0);
+  });
+});
+
 describe("postingDetails", () => {
   it("returns a complete description as it is", async () => {
     const requests = stubFetch(() => json(jsearchV2Page));

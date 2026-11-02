@@ -3,6 +3,7 @@ import { z } from "zod";
 import { PostingSource } from "@/generated/prisma/enums";
 import { daysBetween, formatShortCalendarDate } from "@/lib/dates";
 import type { PostingFit } from "@/lib/fit";
+import { categoriesFromParam, categoryLabels, JOB_CATEGORY_IDS, MAX_CATEGORIES } from "@/lib/job-categories";
 
 import { countryCodeFor } from "./countries";
 
@@ -49,6 +50,8 @@ export const searchQuerySchema = z.object({
   radiusKm: z.literal(RADII_KM),
   remoteOnly: z.boolean(),
   postedWithin: z.enum(POSTED_VALUES),
+  /** Kinds of work, each its own search (src/lib/job-categories.ts); searches kept before them have none. */
+  categories: z.array(z.enum(JOB_CATEGORY_IDS)).max(MAX_CATEGORIES).default([]),
 });
 export type SearchQuery = z.output<typeof searchQuerySchema>;
 
@@ -59,7 +62,14 @@ export const EMPTY_QUERY: SearchQuery = {
   radiusKm: DEFAULT_RADIUS_KM,
   remoteOnly: false,
   postedWithin: "any",
+  categories: [],
 };
+
+/** Whether a search says what to look for: keywords, or a category. */
+export const hasWhat = (query: SearchQuery) => Boolean(query.keywords.trim() || query.categories.length > 0);
+
+/** "react · Software Engineering, UI/UX Design": what a search looks for, in a line. */
+export const searchWhat = (query: SearchQuery) => [query.keywords, categoryLabels(query.categories)].filter(Boolean).join(" · ");
 
 /** A posting as a source found it, in one shape for every source. */
 export const foundPostingSchema = z.object({
@@ -134,7 +144,7 @@ export type PastSearchDay = {
 export function describeSearch(query: SearchQuery, countryName: string): string {
   const where = query.place ? `${query.place}, ${query.radiusKm} km` : countryName;
   const posted = POSTED_WITHIN.find((option) => option.value === query.postedWithin);
-  return [query.keywords, where, query.remoteOnly ? "Remote only" : "", posted && posted.value !== "any" ? posted.label : ""].filter(Boolean).join(" · ");
+  return [searchWhat(query), where, query.remoteOnly ? "Remote only" : "", posted && posted.value !== "any" ? posted.label : ""].filter(Boolean).join(" · ");
 }
 
 /** Identifies a posting across searches. */
@@ -171,15 +181,16 @@ export function linkKey(link: string): string {
 }
 
 // ─── In the URL ──────────────────────────────────────────────────────────────
-// /jobs?q=designer&where=Hamburg&country=de&radius=25&remote=1&posted=week, so
+// /jobs?q=designer&cat=ui-ux,graphic-design&where=Hamburg&country=de&radius=25&remote=1&posted=week, so
 // Back, a reload or a bookmark show the same search.
 
 const one = (value: string | string[] | undefined) => (Array.isArray(value) ? value[0] : value) ?? "";
 
-/** The search in the URL, or null when there's none (no keywords). */
+/** The search in the URL, or null when there's none (no keywords or categories). */
 export function queryFromParams(params: Record<string, string | string[] | undefined>): SearchQuery | null {
   const keywords = one(params.q).trim();
-  if (!keywords) return null;
+  const categories = categoriesFromParam(one(params.cat));
+  if (!keywords && categories.length === 0) return null;
   const radius = Number(one(params.radius));
   const posted = POSTED_VALUES.find((value) => value === one(params.posted));
   const country = one(params.country).trim().toLowerCase();
@@ -190,6 +201,7 @@ export function queryFromParams(params: Record<string, string | string[] | undef
     radiusKm: RADII_KM.find((km) => km === radius) ?? DEFAULT_RADIUS_KM,
     remoteOnly: one(params.remote) === "1",
     postedWithin: posted ?? "any",
+    categories,
   };
 }
 
@@ -209,6 +221,7 @@ export const searchRunHref = (id: string) => `/jobs?search=${encodeURIComponent(
 /** The Find jobs URL for a search. */
 export function searchHref(query: SearchQuery): string {
   const params = new URLSearchParams({ q: query.keywords });
+  if (query.categories.length > 0) params.set("cat", query.categories.join(","));
   if (query.place) params.set("where", query.place);
   if (query.country) params.set("country", query.country);
   if (query.radiusKm !== DEFAULT_RADIUS_KM) params.set("radius", String(query.radiusKm));

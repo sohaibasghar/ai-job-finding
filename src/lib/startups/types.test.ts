@@ -7,6 +7,7 @@ describe("the Startups screen's filter in its address (#222)", () => {
     expect(startupFilterFromParams({})).toEqual(startupFilterSchema.parse({}));
     expect(startupFilterFromParams({ q: ["android", "x"], place: "remote", source: "yc", min: "70", email: "1", view: "saved", sort: "newest" })).toEqual({
       q: "android",
+      categories: [],
       place: "remote",
       source: "YC",
       minScore: 70,

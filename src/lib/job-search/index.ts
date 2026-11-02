@@ -1,5 +1,8 @@
 import "server-only";
 
+import { z } from "zod";
+
+import { categorySearches } from "@/lib/job-categories";
 import { logServerError } from "@/lib/log";
 
 import type { JobSourceAdapter, RequestContext, SourceCredentials } from "./adapter";
@@ -39,7 +42,11 @@ async function logged<T>(work: () => Promise<T>): Promise<T> {
   }
 }
 
-/** One page of postings for `query` from `source`, from the cache when it was asked for in the last half hour. */
+/**
+ * One page of postings for `query` from `source`, from the cache when it was
+ * asked for in the last half hour. With categories, each is its own search,
+ * one after the other, and the page takes from each in turn.
+ */
 export async function searchPostings<S extends JobSource>(
   source: S,
   credentials: SourceCredentials[S],
@@ -48,6 +55,50 @@ export async function searchPostings<S extends JobSource>(
   context: RequestContext = {},
 ): Promise<SearchPage> {
   if (!sourceCovers(source, query.country)) throw jobSearchError("country", source, { country: query.country });
+  if (query.categories.length === 0) return searchOne(source, credentials, query, next, context);
+
+  const searches = categorySearches(query.keywords, query.categories);
+  // Each search's own `next`, null once it has no more; none before the first page.
+  const from = next === null ? searches.map(() => null) : nextsOf(next, searches.length);
+  if (!from) return { postings: [], next: null };
+  const pages: (SearchPage | null)[] = [];
+  for (const [index, keywords] of searches.entries()) {
+    const done = next !== null && from[index] === null;
+    pages.push(done ? null : await searchOne(source, credentials, { ...query, keywords, categories: [] }, from[index], context));
+  }
+
+  const seen = new Set<string>();
+  const postings: FoundPosting[] = [];
+  const longest = Math.max(...pages.map((page) => page?.postings.length ?? 0));
+  for (let row = 0; row < longest; row += 1) {
+    for (const page of pages) {
+      const posting = page?.postings[row];
+      if (!posting || seen.has(postingKey(posting))) continue;
+      seen.add(postingKey(posting));
+      postings.push(posting);
+    }
+  }
+  const nexts = pages.map((page) => page?.next ?? null);
+  return { postings, next: nexts.some(Boolean) ? JSON.stringify(nexts) : null };
+}
+
+/** The searches' own `next`s from a category search's, or null when it isn't one for `count` searches. */
+function nextsOf(next: string, count: number): (string | null)[] | null {
+  try {
+    const parsed = z.array(z.string().nullable()).length(count).safeParse(JSON.parse(next));
+    return parsed.success ? parsed.data : null;
+  } catch {
+    return null;
+  }
+}
+
+async function searchOne<S extends JobSource>(
+  source: S,
+  credentials: SourceCredentials[S],
+  query: SearchQuery,
+  next: string | null,
+  context: RequestContext,
+): Promise<SearchPage> {
   const adapter = adapterFor(source);
   const key = `search:${source}:${JSON.stringify(query)}:${next ?? ""}`;
   const hit = cached<SearchPage>(key);
